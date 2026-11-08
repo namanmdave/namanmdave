@@ -1,4 +1,4 @@
-name: Update Git Koi
+name: Update Git Goku
 
 on:
   schedule:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  generate-koi:
+  generate-goku:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -26,13 +26,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate Git Koi GIF
+      - name: Generate Git Goku GIF
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python git_koi.py --username ${{ github.repository_owner }} --output koi.gif
+          python git_goku.py --username ${{ github.repository_owner }} --output goku.gif
 
-      - name: Commit & push updated Koi
+      - name: Commit & push updated Goku
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add koi.gif
-          git diff --staged --quiet || (git commit -m "🎨 chore: update profile git koi [skip ci]" && git push)
+          git add goku.gif
+          git diff --staged --quiet || (git commit -m "🔥 chore: update profile saiyan streak [skip ci]" && git push)
