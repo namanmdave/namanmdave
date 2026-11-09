@@ -29,20 +29,3 @@
 | **90+ Days** | **Mastered Ultra Instinct (MUI)** | Pure celestial silver hair & eyes, transcendent stardust aura |
 
 ---
-
-### 🛠️ Built 100% Self-Contained
-
-- **Zero third-party binaries or untrusted dependencies**: Pure Python + Pillow ([`git_goku.py`](./git_goku.py)).
-- **Automated Nightly Updates**: A clean GitHub Actions workflow ([`.github/workflows/update-goku.yml`](./.github/workflows/update-goku.yml)) re-calculates the streak and renders the updated form daily.
-
-<details>
-<summary><b>🧪 Test any form locally</b></summary>
-
-```bash
-# Preview Super Saiyan (Day 20):
-python3 git_goku.py --username namanmdave --streak 20 --output preview_ssj.gif
-
-# Preview Mastered Ultra Instinct (Day 90):
-python3 git_goku.py --username namanmdave --streak 90 --output preview_mui.gif
-```
-</details>
