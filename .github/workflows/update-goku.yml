@@ -28,7 +28,7 @@ jobs:
 
       - name: Generate Git Goku GIF
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           python git_goku.py --username ${{ github.repository_owner }} --output goku.gif
 
