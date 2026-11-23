@@ -248,22 +248,69 @@ def get_form_by_streak(days):
             return f
     return GOKU_FORMS[-1]
 
-def fetch_github_streak(username):
+ACTIVE_EVENT_TYPES = {
+    "PushEvent",
+    "PullRequestEvent",
+    "PullRequestReviewEvent",
+    "IssuesEvent",
+    "CreateEvent",
+}
+
+def fetch_recent_event_dates(username):
+    """Fetch recent UTC dates with GitHub activity (including feature-branch pushes)."""
+    dates = set()
     try:
-        query = '''query($u: String!) {
-          user(login: $u) {
-            contributionsCollection {
-              contributionCalendar {
-                weeks {
-                  contributionDays {
-                    date
-                    contributionCount
-                  }
+        cmd = ['gh', 'api', f'users/{username}/events?per_page=100']
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
+        if res.returncode == 0:
+            events = json.loads(res.stdout)
+            if isinstance(events, list):
+                for ev in events:
+                    if ev.get('type') in ACTIVE_EVENT_TYPES and ev.get('created_at'):
+                        dates.add(ev['created_at'][:10])
+                return dates
+    except Exception:
+        pass
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and username:
+        try:
+            req = urllib.request.Request(
+                f"https://api.github.com/users/{username}/events?per_page=100",
+                headers={
+                    "Authorization": f"bearer {token}",
+                    "User-Agent": "Git-Goku",
+                    "Accept": "application/vnd.github+json",
                 }
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                events = json.loads(resp.read().decode())
+                if isinstance(events, list):
+                    for ev in events:
+                        if ev.get('type') in ACTIVE_EVENT_TYPES and ev.get('created_at'):
+                            dates.add(ev['created_at'][:10])
+        except Exception:
+            pass
+
+    return dates
+
+def fetch_github_streak(username, max_gap_days=1):
+    active_dates = fetch_recent_event_dates(username)
+    query = '''query($u: String!) {
+      user(login: $u) {
+        contributionsCollection {
+          contributionCalendar {
+            weeks {
+              contributionDays {
+                date
+                contributionCount
               }
             }
           }
-        }'''
+        }
+      }
+    }'''
+    try:
         cmd = ['gh', 'api', 'graphql', '-f', f'query={query}', '-F', f'u={username}']
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
         if res.returncode == 0:
@@ -271,7 +318,7 @@ def fetch_github_streak(username):
             weeks = data['data']['user']['contributionsCollection']['contributionCalendar']['weeks']
             days = [d for w in weeks for d in w['contributionDays']]
             if days:
-                return calculate_streak_from_days(days)
+                return calculate_streak_from_days(days, active_dates=active_dates, max_gap_days=max_gap_days)
     except Exception:
         pass
 
@@ -289,23 +336,38 @@ def fetch_github_streak(username):
                 weeks = data['data']['user']['contributionsCollection']['contributionCalendar']['weeks']
                 days = [d for w in weeks for d in w['contributionDays']]
                 if days:
-                    return calculate_streak_from_days(days)
+                    return calculate_streak_from_days(days, active_dates=active_dates, max_gap_days=max_gap_days)
         except Exception:
             pass
 
     return 1
 
-def calculate_streak_from_days(days):
+def calculate_streak_from_days(days, active_dates=None, max_gap_days=1):
+    active_dates = active_dates or set()
     streak = 0
     rev = list(reversed(days))
     if not rev:
         return 0
+
+    def is_active(day):
+        return day['contributionCount'] > 0 or day.get('date') in active_dates
+
     idx = 0
-    if rev[0]['contributionCount'] == 0:
+    # Today may still be in progress; skip it if no activity yet.
+    if not is_active(rev[0]):
         idx = 1
-    while idx < len(rev) and rev[idx]['contributionCount'] > 0:
-        streak += 1
+
+    consecutive_misses = 0
+    while idx < len(rev):
+        if is_active(rev[idx]):
+            streak += 1
+            consecutive_misses = 0
+        else:
+            consecutive_misses += 1
+            if consecutive_misses > max_gap_days:
+                break
         idx += 1
+
     return max(1, streak)
 
 class GitGokuRenderer:
